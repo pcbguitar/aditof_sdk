@@ -4,6 +4,7 @@
 #include "pybind11/stl.h"
 
 #include <aditof/aditof.h>
+#include <aditof/camera_96tof1_specifics.h>
 
 namespace py = pybind11;
 
@@ -52,7 +53,8 @@ PYBIND11_MODULE(aditofpython, m) {
         .def_readwrite("mode", &aditof::CameraDetails::mode)
         .def_readwrite("frameType", &aditof::CameraDetails::frameType)
         .def_readwrite("connection", &aditof::CameraDetails::connection)
-        .def_readwrite("range", &aditof::CameraDetails::range);
+        .def_readwrite("range", &aditof::CameraDetails::range)
+        .def_readwrite("bitCount", &aditof::CameraDetails::bitCount);
 
     // Helpers
 
@@ -87,7 +89,20 @@ PYBIND11_MODULE(aditofpython, m) {
 
                  return status;
              },
-             py::arg("cameras"));
+             py::arg("cameras"))
+        .def("getCameraListAtIp",
+             [](aditof::System &system, py::list cameras, py::str ip) {
+                 std::vector<std::shared_ptr<aditof::Camera>> cameraList;
+                 aditof::Status status =
+                     system.getCameraListAtIp(cameraList, ip);
+
+                 for (const auto &cam : cameraList) {
+                     cameras.append(cam);
+                 }
+
+                 return status;
+             },
+             py::arg("cameras"), py::arg("ip"));
 
     py::class_<aditof::Camera, std::shared_ptr<aditof::Camera>>(m, "Camera")
         .def("initialize", &aditof::Camera::initialize)
@@ -123,8 +138,13 @@ PYBIND11_MODULE(aditofpython, m) {
         .def("requestFrame", &aditof::Camera::requestFrame, py::arg("frame"),
              py::arg("cb") = nullptr)
         .def("getDetails", &aditof::Camera::getDetails, py::arg("details"))
-        .def("getDevice", &aditof::Camera::getDevice,
-             py::return_value_policy::reference_internal);
+        .def("getDevice", &aditof::Camera::getDevice)
+        .def("getCamera96Tof1Specifics", [](aditof::Camera &camera) {
+            using namespace aditof;
+            std::shared_ptr<CameraSpecifics> specifics = camera.getSpecifics();
+
+            return std::dynamic_pointer_cast<Camera96Tof1Specifics>(specifics);
+        });
 
     py::class_<aditof::Frame>(m, "Frame")
         .def(py::init<>())
@@ -142,7 +162,8 @@ PYBIND11_MODULE(aditofpython, m) {
              },
              py::arg("dataType"));
 
-    py::class_<aditof::DeviceInterface>(m, "DeviceInterface")
+    py::class_<aditof::DeviceInterface,
+               std::shared_ptr<aditof::DeviceInterface>>(m, "DeviceInterface")
         .def("open", &aditof::DeviceInterface::open)
         .def("start", &aditof::DeviceInterface::start)
         .def("stop", &aditof::DeviceInterface::stop)
@@ -245,4 +266,18 @@ PYBIND11_MODULE(aditofpython, m) {
                  return device.applyCalibrationToFrame(ptr, mode);
              },
              py::arg("frame"), py::arg("mode"));
+
+    py::class_<aditof::Camera96Tof1Specifics,
+               std::shared_ptr<aditof::Camera96Tof1Specifics>>(
+        m, "Camera96Tof1Specifics")
+        .def("enableNoiseReduction",
+             &aditof::Camera96Tof1Specifics::enableNoiseReduction,
+             py::arg("en"))
+        .def("noiseReductionEnabled",
+             &aditof::Camera96Tof1Specifics::noiseReductionEnabled)
+        .def("setNoiseReductionThreshold",
+             &aditof::Camera96Tof1Specifics::setNoiseReductionThreshold,
+             py::arg("threshold"))
+        .def("noiseReductionThreshold",
+             &aditof::Camera96Tof1Specifics::noiseReductionThreshold);
 }

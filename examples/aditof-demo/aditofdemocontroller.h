@@ -48,8 +48,13 @@ class AdiTofDemoController {
 
     int getRange() const;
 
+    int getbitCount() const;
+
     bool setEthernetConnection(const std::string &ip);
     bool setRegularConnection();
+
+    aditof::Status enableNoiseReduction(bool en);
+    aditof::Status setNoiseReductionThreshold(uint16_t threshold);
 
   private:
     void captureFrames();

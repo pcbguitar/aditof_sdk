@@ -1,4 +1,6 @@
 #include <aditof/camera.h>
+#include <aditof/camera_96tof1_specifics.h>
+#include <aditof/device_interface.h>
 #include <aditof/frame.h>
 #include <aditof/system.h>
 #include <glog/logging.h>
@@ -57,13 +59,23 @@ int main(int argc, char *argv[]) {
         return 0;
     }
 
-    status = camera->setMode(modes.front());
+    status = camera->setMode(modes[0]);
     if (status != Status::OK) {
         LOG(ERROR) << "Could not set camera mode!";
         return 0;
     }
 
+    aditof::CameraDetails cameraDetails;
+    camera->getDetails(cameraDetails);
+    int cameraRange = cameraDetails.range;
     aditof::Frame frame;
+
+    const int smallSignalThreshold = 50;
+    auto specifics = camera->getSpecifics();
+    auto cam96tof1Specifics =
+        std::dynamic_pointer_cast<Camera96Tof1Specifics>(specifics);
+    cam96tof1Specifics->setNoiseReductionThreshold(smallSignalThreshold);
+    cam96tof1Specifics->enableNoiseReduction(true);
 
     cv::namedWindow("Display Image", cv::WINDOW_AUTOSIZE);
 
@@ -86,7 +98,7 @@ int main(int argc, char *argv[]) {
         }
 
         /* Distance factor */
-        double distance_scale = 255.0 / 5999;
+        double distance_scale = 255.0 / cameraRange;
 
         /* Convert from raw values to values that opencv can understand */
         mat.convertTo(mat, CV_8U, distance_scale);

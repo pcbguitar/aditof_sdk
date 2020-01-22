@@ -1,4 +1,5 @@
 #include <aditof/camera.h>
+#include <aditof/camera_96tof1_specifics.h>
 #include <aditof/frame.h>
 #include <aditof/system.h>
 #include <glog/logging.h>
@@ -9,6 +10,7 @@
 #include <opencv2/imgproc.hpp>
 #include <opencv2/photo.hpp>
 // #include <opencv2/ximgproc/edge_filter.hpp>
+#include <aditof/device_interface.h>
 
 #include <cstdlib>
 #include <iomanip>
@@ -80,11 +82,16 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-    status = camera->setMode(modes[1]);
+    status = camera->setMode(modes[0]);
     if (status != Status::OK) {
         LOG(ERROR) << "Could not set camera mode!";
         return -1;
     }
+
+    aditof::CameraDetails cameraDetails;
+    camera->getDetails(cameraDetails);
+    int cameraRange = cameraDetails.range;
+    int bitCount = cameraDetails.bitCount;
 
     aditof::Frame frame;
     status = camera->requestFrame(&frame);
@@ -93,10 +100,17 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
+    const int smallSignalThreshold = 50;
+    auto specifics = camera->getSpecifics();
+    auto cam96tof1Specifics =
+        std::dynamic_pointer_cast<Camera96Tof1Specifics>(specifics);
+    cam96tof1Specifics->setNoiseReductionThreshold(smallSignalThreshold);
+    cam96tof1Specifics->enableNoiseReduction(true);
+
     aditof::FrameDetails frameDetails;
     frame.getDetails(frameDetails);
 
-    cv::namedWindow("Display Objects", cv::WINDOW_AUTOSIZE);
+    cv::namedWindow("Display Objects Depth and IR", cv::WINDOW_AUTOSIZE);
     cv::namedWindow("Display Objects Depth", cv::WINDOW_AUTOSIZE);
 
     cv::Size cropSize;
@@ -123,7 +137,8 @@ int main(int argc, char *argv[]) {
         p[i] = cv::saturate_cast<uchar>(pow(i / 255.0, gamma) * 255.0);
 
     while (cv::waitKey(1) != 27 &&
-           getWindowProperty("Display Objects", cv::WND_PROP_AUTOSIZE) >= 0) {
+           getWindowProperty("Display Objects Depth", cv::WND_PROP_AUTOSIZE) >=
+               0) {
         /* Request frame from camera */
         status = camera->requestFrame(&frame);
         if (status != Status::OK) {
@@ -157,13 +172,18 @@ int main(int argc, char *argv[]) {
         }
 
         /* Distance factor */
-        double distance_scale = 255.0 / 3000;
+        double distance_scale = 255.0 / cameraRange;
+
+        int max_value_of_IR_pixel = (1 << bitCount) - 1;
+
+        /* Distance factor IR */
+        double distance_scale_ir = 255.0 / max_value_of_IR_pixel;
 
         /* Convert from raw values to values that opencv can understand */
         frameMat.convertTo(frameMat, CV_8U, distance_scale);
         applyColorMap(frameMat, frameMat, cv::COLORMAP_RAINBOW);
 
-        irMat.convertTo(irMat, CV_8U, distance_scale);
+        irMat.convertTo(irMat, CV_8U, distance_scale_ir);
         cv::cvtColor(irMat, irMat, cv::COLOR_GRAY2RGB);
 
         /* Use a combination between ir mat & depth mat as input for the Net as
@@ -246,8 +266,8 @@ int main(int argc, char *argv[]) {
         }
 
         /* Display the images */
-        cv::imshow("Display Objects", frameMat);
-        cv::imshow("Display Objects Depth", resultMat);
+        cv::imshow("Display Objects Depth", frameMat);
+        cv::imshow("Display Objects Depth and IR", resultMat);
     }
 
     return 0;
