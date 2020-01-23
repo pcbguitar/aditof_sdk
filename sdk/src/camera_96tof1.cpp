@@ -15,7 +15,13 @@ static const std::string skCustomMode = "custom";
 Camera96Tof1::Camera96Tof1(std::unique_ptr<aditof::DeviceInterface> device)
     : m_specifics(std::make_shared<aditof::Camera96Tof1Specifics>(
           aditof::Camera96Tof1Specifics(this))),
-      m_device(std::move(device)), m_devStarted(false) {}
+      m_device(std::move(device)), m_devStarted(false) {
+
+    // initialize range values with the default data for revision C
+    m_rangeValues.push_back({"near", 250, 800});
+    m_rangeValues.push_back({"medium", 300, 4500});
+    m_rangeValues.push_back({"far", 3000, 6000});
+}
 
 Camera96Tof1::~Camera96Tof1() = default;
 
@@ -54,16 +60,28 @@ aditof::Status Camera96Tof1::stop() {
     return aditof::Status::OK;
 }
 
+aditof::Status Camera96Tof1::setRangeValues() {
+    using namespace aditof;
+    auto cam96tof1Specifics =
+        std::dynamic_pointer_cast<Camera96Tof1Specifics>(m_specifics);
+    RevisionType revision = cam96tof1Specifics->getRevision();
+    if (revision == RevisionType::RevB) {
+        m_rangeValues.at(1).maxDepth = 3000;
+    } else if (revision == RevisionType::RevC ||
+               revision == RevisionType::RevA) {
+        m_rangeValues.at(1).maxDepth = 4500;
+    }
+    return aditof::Status::OK;
+}
+
 aditof::Status Camera96Tof1::setMode(const std::string &mode,
                                      const std::string &modeFilename) {
     using namespace aditof;
     Status status = Status::OK;
+    if (setRangeValues() != Status::OK)
+        LOG(WARNING) << "Depth values were not set correctly.";
 
     LOG(INFO) << "Chosen mode: " << mode.c_str();
-
-    std::vector<struct rangeStruct> rangeValues = {
-        {"near", 250, 800}, {"medium", 300, 4500}, {"far", 3000, 6000}};
-
     if ((mode != skCustomMode) ^ (modeFilename.empty())) {
         LOG(WARNING) << " mode must be set to: '" << skCustomMode
                      << "' and a firmware must be provided";
@@ -93,11 +111,11 @@ aditof::Status Camera96Tof1::setMode(const std::string &mode,
         m_details.maxDepth = 4095;
         m_details.minDepth = 0;
     } else {
-        auto iter = std::find_if(rangeValues.begin(), rangeValues.end(),
+        auto iter = std::find_if(m_rangeValues.begin(), m_rangeValues.end(),
                                  [&mode](struct rangeStruct rangeMode) {
                                      return rangeMode.mode == mode;
                                  });
-        if (iter != rangeValues.end()) {
+        if (iter != m_rangeValues.end()) {
             m_details.maxDepth = (*iter).maxDepth;
             m_details.minDepth = (*iter).minDepth;
         } else {
@@ -152,12 +170,12 @@ aditof::Status Camera96Tof1::setMode(const std::string &mode,
         if (status == Status::OK) {
             int range = 1;
 
-            auto iter = std::find_if(rangeValues.begin(), rangeValues.end(),
+            auto iter = std::find_if(m_rangeValues.begin(), m_rangeValues.end(),
                                      [&mode](struct rangeStruct rangeMode) {
                                          return rangeMode.mode == mode;
                                      });
 
-            if (iter != rangeValues.end()) {
+            if (iter != m_rangeValues.end()) {
                 range = (*iter).maxDepth;
             }
             m_device->setCalibrationParams(mode, gain, offset, range);

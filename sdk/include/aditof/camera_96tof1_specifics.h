@@ -14,6 +14,9 @@ namespace aditof {
  * @class Camera96Tof1Specifics
  * @brief Implements the extened API that is specific for the 96 TOF1 camera.
  */
+
+enum class RevisionType { RevA, RevB, RevC };
+
 class SDK_API Camera96Tof1Specifics : public CameraSpecifics {
   public:
     /**
@@ -48,6 +51,18 @@ class SDK_API Camera96Tof1Specifics : public CameraSpecifics {
      */
     uint16_t noiseReductionThreshold() const;
 
+    /**
+     * @brief Sets the camera revision type.
+     * @return Status
+     */
+    Status setCameraRevision(std::string revision);
+
+    /**
+     * @brief Returns the current camera revision type.
+     * @return RevisionType
+     */
+    RevisionType getRevision() const;
+
   private:
     Status setTresholdAndEnable(uint16_t treshold, bool en);
 
@@ -55,6 +70,7 @@ class SDK_API Camera96Tof1Specifics : public CameraSpecifics {
     Camera96Tof1 *m_camera;
     bool m_noiseReductionOn;
     uint16_t m_noiseReductionThreshold;
+    RevisionType m_revision;
 };
 
 } // namespace aditof

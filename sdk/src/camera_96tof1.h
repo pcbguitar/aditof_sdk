@@ -30,6 +30,8 @@ class Camera96Tof1 : public aditof::Camera {
     std::shared_ptr<aditof::CameraSpecifics> getSpecifics();
     std::shared_ptr<aditof::DeviceInterface> getDevice();
 
+    aditof::Status setRangeValues();
+
   private:
     aditof::CameraDetails m_details;
     std::shared_ptr<aditof::CameraSpecifics> m_specifics;
@@ -41,6 +43,7 @@ class Camera96Tof1 : public aditof::Camera {
         int minDepth;
         int maxDepth;
     };
+    std::vector<struct rangeStruct> m_rangeValues;
 
   public:
     friend class aditof::Camera96Tof1Specifics;
