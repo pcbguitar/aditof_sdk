@@ -1,6 +1,5 @@
 import aditofpython as tof
 import device
-#import tof_device.tof_device as tofdev
 import intrinsic_calibration as ic
 import sys
 import numpy as np
@@ -39,14 +38,6 @@ def run_intrinsic_calibration(intrinsic_config_json, **kwargs):
     file_list = natsorted(os.listdir("./"+firmware_path+"/"), alg=ns.IGNORECASE)[:14]
     print(file_list)
     
-    # dev_handle = tofdev.tof_device()
-    # ret = dev_handle.openDevice(2,-1)
-    # if ret != -1:
-        # logger.info("Device Opened")
-    # else:
-        # logger.error("Can't open device")
-        # raise SystemExit
-        
     #Initialize tof class
     system = tof.System()
     status = system.initialize()
@@ -56,17 +47,12 @@ def run_intrinsic_calibration(intrinsic_config_json, **kwargs):
     cam_handle = device.open_device2(system)
     firmware_path = intrinsic_config_dict['firmware_path']
     device.program_firmware2(cam_handle, firmware_path)
-        
-    # for file_name in file_list:
-        # if file_name.endswith(".lf"):
-            # dev_handle.parseCode("./"+firmware_path+"/"+file_name)
      
     device.write_AFE_reg(cam_handle, [0xC0A9], [0x0002])
     device.write_AFE_reg(cam_handle, [0x4001], [0x0006])
     device.write_AFE_reg(cam_handle, [0x7c22], [0x0004])
     device.write_AFE_reg(cam_handle, [0x4001], [0x0007])
     device.write_AFE_reg(cam_handle, [0x7c22], [0x0004])
-    
     
     config_path = intrinsic_config_dict['config_path']
     output_path = intrinsic_config_dict['output_path']
